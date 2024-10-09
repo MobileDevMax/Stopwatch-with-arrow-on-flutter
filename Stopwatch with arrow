@@ -1,0 +1,232 @@
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart';
+
+void main() => runApp(StopwatchApp());
+
+class StopwatchApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Stopwatch with arrow',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: StopwatchPage(),
+    );
+  }
+}
+
+class StopwatchPage extends StatefulWidget {
+  @override
+  _StopwatchPageState createState() => _StopwatchPageState();
+}
+
+class _StopwatchPageState extends State<StopwatchPage> {
+  Timer? _timer;
+  int _elapsedMilliseconds = 0;
+  bool _isRunning = false;
+
+  void _startStopwatch() {
+    if (_isRunning) return;
+    _isRunning = true;
+    _timer = Timer.periodic(Duration(milliseconds: 10), (timer) {
+      setState(() {
+        _elapsedMilliseconds += 10;
+      });
+    });
+  }
+
+  void _stopStopwatch() {
+    if (!_isRunning) return;
+    _isRunning = false;
+    _timer?.cancel();
+  }
+
+  void _resetStopwatch() {
+    _stopStopwatch();
+    setState(() {
+      _elapsedMilliseconds = 0;
+    });
+  }
+
+  String _formatElapsedTime(int milliseconds) {
+    final minutes = (milliseconds ~/ 60000).toString().padLeft(2, '0');
+    final seconds = ((milliseconds % 60000) ~/ 1000).toString().padLeft(2, '0');
+    final millis = ((milliseconds % 1000) ~/ 10).toString().padLeft(2, '0');
+    return '$minutes:$seconds:$millis';
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Stopwatch with arrow'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CustomPaint(
+              size: Size(300, 300),
+              painter: StopwatchPainter(_elapsedMilliseconds),
+            ),
+            SizedBox(height: 20),
+            Text(
+              _formatElapsedTime(_elapsedMilliseconds),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _startStopwatch,
+            child: Icon(Icons.play_arrow),
+          ),
+          SizedBox(width: 10),
+          FloatingActionButton(
+            onPressed: _stopStopwatch,
+            child: Icon(Icons.stop),
+          ),
+          SizedBox(width: 10),
+          FloatingActionButton(
+            onPressed: _resetStopwatch,
+            child: Icon(Icons.replay),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StopwatchPainter extends CustomPainter {
+  final int elapsedMilliseconds;
+
+  StopwatchPainter(this.elapsedMilliseconds);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    final paintCircle = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final paintOutline = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8;
+
+    final paintHand = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final paintMinuteMarkers = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 2;
+
+    final paintHourMarkers = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 4;
+
+    // Draw clock face
+    canvas.drawCircle(center, radius, paintCircle);
+    canvas.drawCircle(center, radius, paintOutline);
+     // Draw hour markers
+    for (int i = 0; i < 12; i++) {
+      final angle = (i * 30) * pi / 180;
+      final startOffset = Offset(
+        center.dx + (radius - 10) * sin(angle),
+        center.dy - (radius - 10) * cos(angle),
+      );
+      final endOffset = Offset(
+        center.dx + radius * sin(angle),
+        center.dy - radius * cos(angle),
+      );
+      canvas.drawLine(startOffset, endOffset, paintHourMarkers);
+    }
+
+    // Draw minute markers
+    for (int i = 0; i < 60; i++) {
+      if (i % 5 != 0) {
+        final angle = (i * 6) * pi / 180;
+        final startOffset = Offset(
+          center.dx + (radius - 5) * sin(angle),
+          center.dy - (radius - 5) * cos(angle),
+        );
+        final endOffset = Offset(
+          center.dx + radius * sin(angle),
+          center.dy - radius * cos(angle),
+        );
+        canvas.drawLine(startOffset, endOffset, paintMinuteMarkers);
+      }
+    }
+
+    // Draw numbers on clock face
+    final textStyle = TextStyle(
+      color: Colors.black,
+      fontSize: 20,
+    );
+
+    for (int i = 1; i <= 12; i++) {
+      final angle = (i * 30) * pi / 180; // 30 degrees for each hour
+      final numberOffset = Offset(
+        center.dx + (radius - 30) * sin(angle),
+        center.dy - (radius - 30) * cos(angle),
+      );
+
+      final textSpan = TextSpan(
+        text: i.toString(),
+        style: textStyle,
+      );
+
+      final textPainter = TextPainter(
+        text: textSpan,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      );
+
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        numberOffset - Offset(textPainter.width / 2, textPainter.height / 2),
+      );
+    }
+
+    // Draw second hand
+    final secondHandAngle = ((elapsedMilliseconds / 1000) % 60) * 2 * pi / 60;
+    final secondHandLength = radius * 0.9;
+    final secondHandOffset = Offset(
+      center.dx + secondHandLength * sin(secondHandAngle),
+      center.dy - secondHandLength * cos(secondHandAngle),
+    );
+
+    canvas.drawLine(center, secondHandOffset, paintHand);
+
+    // Draw center point
+    final paintCenter = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, 5, paintCenter);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return true;
+  }
+}
